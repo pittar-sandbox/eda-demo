@@ -1,0 +1,105 @@
+schemaVersion: 2.2.0
+attributes:
+  controller.devfile.io/storage-type: per-workspace
+metadata:
+  name: eda-demo
+  version: 1.2.1
+  provider: Red Hat
+  icon: https://design.jboss.org/quarkus/logo/final/SVG/quarkus_icon_rgb_default.svg
+  website: https://quarkus.io
+  displayName: Quarkus and Kafka with PostgeSQL
+  description: Quarkus and Kafka with PostgreSQL
+  tags:
+    - Java
+    - Quarkus
+    - PostgreSQL
+    - Kafka
+  projectType: Quarkus
+  language: Java
+projects:
+  - name: "eda-demo"
+    git:
+      remotes:
+        origin: "https://github.com/pittar-sandbox/eda-demo"
+      checkoutFrom:
+        revision: "main"
+        remote: origin
+  # - name: "eda-demo-gitops"
+  #   git:
+  #     remotes:
+  #       origin: "https://github.com/pittar-sandbox/eda-demo-gitops"
+  #     checkoutFrom:
+  #       revision: "main"
+  #       remote: origin
+components:
+  - name: tools
+    container:
+      image: registry.redhat.io/devspaces/udi-rhel8:3.16
+      env:
+        - name: QUARKUS_HTTP_HOST
+          value: 0.0.0.0
+        - name: QUARKUS_ANALYTICS_DISABLED
+          value: "true"
+        - name: QUARKUS_DEV_UI_CORS_ENABLED
+          value: "false"
+      endpoints:
+        - exposure: none
+          name: debug
+          protocol: tcp
+          targetPort: 5005
+        - exposure: public
+          name: main
+          protocol: https
+          targetPort: 8080
+          path: /
+      volumeMounts:
+        - name: m2
+          path: /home/user/.m2
+      cpuLimit: '2'
+      cpuRequest: '1'
+      memoryLimit: '4G'
+      memoryRequest: '4G'
+      mountSources: true
+  - name: "postgres"
+    container:
+      image: "registry.redhat.io/rhel9/postgresql-16:latest"
+      memoryLimit: "256M"
+      env:
+        - name: POSTGRESQL_DATABASE
+          value: quarkus_test
+        - name: POSTGRESQL_USER
+          value: quarkus_test
+        - name: POSTGRESQL_PASSWORD
+          value: quarkus_test
+      volumeMounts:
+        - name: pgdata
+          path: /var/lib/pgsql/data
+      endpoints:
+        - name: postgres
+          targetPort: 5432
+          exposure: internal
+  - volume:
+      size: 1G
+    name: m2
+  - volume:
+      size: 2Gi
+    name: pgdata
+commands:
+  - id: 1-package
+    exec:
+      label: "1. Package the application"
+      component: tools
+      workingDir: ${PROJECTS_ROOT}/eda-demo
+      commandLine: "./mvnw package"
+      group:
+        kind: build
+        isDefault: true
+  - id: 2-startdev
+    exec:
+      label: "2. Start Development mode (Hot reload + debug)"
+      component: tools
+      workingDir: ${PROJECTS_ROOT}/eda-demo
+      commandLine: "./mvnw compile quarkus:dev"
+      group:
+        kind: run
+        isDefault: true
